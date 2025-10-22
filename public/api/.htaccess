@@ -1,0 +1,16 @@
+# Permite total acesso aos arquivos PHP da API
+Order allow,deny
+Allow from all
+
+# Permite acesso a todos os arquivos .php
+<FilesMatch "\.php$">
+    Order allow,deny
+    Allow from all
+    Require all granted
+</FilesMatch>
+
+# Desabilita mod_security se estiver ativo
+<IfModule mod_security.c>
+    SecFilterEngine Off
+    SecFilterScanPOST Off
+</IfModule>
