@@ -17,6 +17,8 @@ import PatientDashboard from "./pages/PatientDashboard";
 import NutritionistSignup from "@/pages/NutritionistSignup";
 import NutritionistLoginConfirm from "@/pages/NutritionistLoginConfirm";
 import NutritionistProfile from "@/pages/NutritionistProfile";
+import PatientHub from "@/pages/PatientHub";
+import ProgressDashboard from "@/pages/ProgressDashboard";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +34,9 @@ const App = () => (
             <Route path="nutricionista" element={<NutritionistDashboard />} />
             <Route path="nutricionista/cadastro" element={<NutritionistSignup />} />
             <Route path="nutricionista/confirmacao" element={<NutritionistLoginConfirm />} />
-            <Route path="nutricionista/paciente/:id" element={<PatientProfile />} />
+            <Route path="nutricionista/paciente/:id" element={<PatientHub />} />
+            <Route path="nutricionista/paciente/:id/dieta" element={<PatientProfile />} />
+            <Route path="nutricionista/paciente/:id/dashboard" element={<ProgressDashboard />} />
             <Route path="nutricionista/perfil" element={<NutritionistProfile />} />
             <Route path="nutricionista/regras" element={<SubstitutionRules />} />
             <Route path="paciente-portal" element={<PatientPortal />} />
