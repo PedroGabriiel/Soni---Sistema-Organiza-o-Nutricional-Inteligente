@@ -1,10 +1,7 @@
 // Configuração da API
-// Usando caminho relativo ao domínio para evitar problemas de encoding com caracteres acentuados
+// Usando alias do Apache para evitar problemas com caracteres especiais no caminho
 
-// Caminho absoluto do projeto no servidor (ajuste se necessário)
-const PROJECT_PATH = '/Prototipo-Soni-Sistema-de-Organização-Nutricional-Inteligente';
-
-const API_BASE_URL = `http://localhost${PROJECT_PATH}/public/api`;
+const API_BASE_URL = 'http://localhost/soni/public/api';
 
 export const API_ENDPOINTS = {
   // Nutricionista
@@ -21,6 +18,14 @@ export const API_ENDPOINTS = {
   getPatientInfo: `${API_BASE_URL}/get_patient_info.php`,
   getPatientDiet: `${API_BASE_URL}/get_patient_diet.php`,
   savePatientDiet: `${API_BASE_URL}/save_patient_diet.php`,
+  
+  // Dados Clínicos
+  getPhysicalAssessments: `${API_BASE_URL}/get_physical_assessments.php`,
+  getBodyMeasurements: `${API_BASE_URL}/get_body_measurements.php`,
+  getFoodDiary: `${API_BASE_URL}/get_food_diary.php`,
+  getNutrientGoals: `${API_BASE_URL}/get_nutrient_goals.php`,
+  getDailyReports: `${API_BASE_URL}/get_daily_reports.php`,
+  getDailyIntake: `${API_BASE_URL}/get_daily_intake.php`,
   
   // Testes (removidos em produção)
 };

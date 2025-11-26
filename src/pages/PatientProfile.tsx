@@ -115,7 +115,7 @@ const PatientProfile = () => {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => navigate('/nutricionista')} className="text-primary bg-primary-50">
+                <SidebarMenuButton onClick={() => navigate('/nutricionista')}>
                   <Users className="h-4 w-4" />
                   <span>Pacientes</span>
                 </SidebarMenuButton>
@@ -149,7 +149,7 @@ const PatientProfile = () => {
             <SidebarTrigger className="md:hidden" />
             <Button
               variant="ghost"
-              onClick={() => navigate('/nutricionista')}
+              onClick={() => navigate(`/nutricionista/paciente/${id}`)}
               className="p-2"
             >
               <ArrowLeft className="h-4 w-4" />
