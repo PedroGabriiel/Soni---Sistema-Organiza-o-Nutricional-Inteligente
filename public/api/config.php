@@ -12,8 +12,10 @@ $allowed_origins = [
     'http://127.0.0.1',
     'http://localhost:5173', // Vite default
     'http://127.0.0.1:5173',
-    'http://localhost:8080', // Vite config atual
+    'http://localhost:8080', // Vite config
     'http://127.0.0.1:8080',
+    'http://localhost:8081', // Vite fallback port
+    'http://127.0.0.1:8081',
     $origin,
 ];
 if (in_array($origin, $allowed_origins) || $origin === '*') {
@@ -29,10 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-$DB_HOST = getenv('DB_HOST') ?: '127.0.0.1:3306';
+$DB_HOST = getenv('DB_HOST') ?: 'localhost';
 $DB_NAME = getenv('DB_NAME') ?: 'soni';
 $DB_USER = getenv('DB_USER') ?: 'root';
-$DB_PASS = getenv('DB_PASS') ?: '';
+$DB_PASS = getenv('DB_PASS') ?: '0341997';
 $DB_CHARSET = 'utf8mb4';
 
 function db() {
