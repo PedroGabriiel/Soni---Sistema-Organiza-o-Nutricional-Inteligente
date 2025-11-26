@@ -1,9 +1,13 @@
 <?php
-ini_set('display_errors', 0);
+// Enable verbose reporting temporarily for debugging 500 errors
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
-require_once 'config.php';
 
 try {
+    // load helpers (config.php defines db(), respond(), jsonBody())
+    require_once __DIR__ . '/config.php';
     $pdo = db();
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -76,7 +80,24 @@ try {
     // Insere refeições e itens
     $insRef = $pdo->prepare('INSERT INTO refeicao (dieta_id, nome, horario) VALUES (:did, :nome, :horario)');
     $selAl = $pdo->prepare('SELECT alimento_id FROM alimento WHERE LOWER(nome) = LOWER(:nome) LIMIT 1');
-    $insAl = $pdo->prepare('INSERT INTO alimento (nome) VALUES (:nome)');
+
+    // Detectar colunas opcionais na tabela `alimento` para evitar SQL errors
+    $colsStmt = $pdo->query("SHOW COLUMNS FROM alimento");
+    $cols = $colsStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    $has_proteinas_col = in_array('proteinas_100g', $cols);
+    $has_carbo_col = in_array('carboidratos_100g', $cols);
+    $has_categoria_col = in_array('categoria', $cols);
+
+    // Monta INSERT dinâmico conforme colunas existentes
+    $alCols = ['nome'];
+    $alParams = [':nome'];
+    if ($has_proteinas_col) { $alCols[] = 'proteinas_100g'; $alParams[] = ':proteinas'; }
+    if ($has_carbo_col) { $alCols[] = 'carboidratos_100g'; $alParams[] = ':carboidratos'; }
+    if ($has_categoria_col) { $alCols[] = 'categoria'; $alParams[] = ':categoria'; }
+
+    $insAlSql = sprintf('INSERT INTO alimento (%s) VALUES (%s)', implode(', ', $alCols), implode(', ', $alParams));
+    $insAl = $pdo->prepare($insAlSql);
+
     $insItem = $pdo->prepare('INSERT INTO itensrefeicao (refeicao_id, alimento_id, quantidade, unidade_medida) VALUES (:rid, :aid, :qtd, :um)');
 
     foreach ($refeicoes as $r) {
@@ -93,8 +114,34 @@ try {
             $selAl->execute(['nome' => $alimento_nome]);
             $aid = $selAl->fetchColumn();
             if (!$aid) {
-                $insAl->execute(['nome' => $alimento_nome]);
+                // Optional extra fields
+                $proteinas = isset($it['proteinas']) ? floatval($it['proteinas']) : null;
+                $carbo = isset($it['carboidratos']) ? floatval($it['carboidratos']) : null;
+                $categoria = isset($it['categoria']) ? trim($it['categoria']) : null;
+
+                $params = ['nome' => $alimento_nome];
+                if ($has_proteinas_col) $params['proteinas'] = $proteinas;
+                if ($has_carbo_col) $params['carboidratos'] = $carbo;
+                if ($has_categoria_col) $params['categoria'] = $categoria;
+
+                $insAl->execute($params);
                 $aid = (int)$pdo->lastInsertId();
+            } else {
+                // se existir mas categoria/proteinas foram enviadas, tente atualizar meta (não obrigatório)
+                $categoria = isset($it['categoria']) ? trim($it['categoria']) : null;
+                $proteinas = isset($it['proteinas']) ? floatval($it['proteinas']) : null;
+                $carbo = isset($it['carboidratos']) ? floatval($it['carboidratos']) : null;
+                if (($has_categoria_col && $categoria !== null) || ($has_proteinas_col && $proteinas !== null) || ($has_carbo_col && $carbo !== null)) {
+                    $updates = [];
+                    $params = ['nome' => $alimento_nome];
+                    if ($has_categoria_col && $categoria !== null) { $updates[] = 'categoria = :categoria'; $params['categoria'] = $categoria; }
+                    if ($has_proteinas_col && $proteinas !== null) { $updates[] = 'proteinas_100g = :proteinas'; $params['proteinas'] = $proteinas; }
+                    if ($has_carbo_col && $carbo !== null) { $updates[] = 'carboidratos_100g = :carboidratos'; $params['carboidratos'] = $carbo; }
+                    if (count($updates) > 0) {
+                        $sql = 'UPDATE alimento SET ' . implode(', ', $updates) . ' WHERE LOWER(nome) = LOWER(:nome)';
+                        $pdo->prepare($sql)->execute($params);
+                    }
+                }
             }
             $qtd = (string)($it['quantidade'] ?? '');
             $um = $it['unidade_medida'] ?? null;
@@ -106,6 +153,23 @@ try {
 
     respond(200, ['ok' => true, 'message' => 'Dieta salva com sucesso', 'data' => ['dieta_id' => $dieta_id]]);
 } catch (Throwable $e) {
-    if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-    respond(500, ['ok' => false, 'message' => 'Erro ao salvar dieta', 'error' => $e->getMessage()]);
+    // attempt rollback if in transaction
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
+
+    // log to local file for developer inspection
+    try {
+        @file_put_contents(__DIR__ . '/save_patient_diet_error.log', date('c') . " - " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
+    } catch (Exception $ex) {
+        // ignore logging failure
+    }
+
+    $payload = ['ok' => false, 'message' => 'Erro ao salvar dieta', 'error' => $e->getMessage()];
+    if (function_exists('respond')) {
+        respond(500, $payload);
+    } else {
+        // fallback if config.php failed to load
+        http_response_code(500);
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
 }

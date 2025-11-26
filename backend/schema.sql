@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS Alimento (
   nome VARCHAR(255) NOT NULL UNIQUE,
   calorias_100g FLOAT,
   proteinas_100g FLOAT,
+  carboidratos_100g FLOAT DEFAULT 0,
+  categoria VARCHAR(100) DEFAULT NULL,
   gorduras_100g FLOAT,
   fibras_100g FLOAT,
   PRIMARY KEY (alimento_id)
@@ -139,7 +141,7 @@ CREATE TABLE IF NOT EXISTS Alimento (
 -- Itens de cada refeição (quantidades de alimentos)
 CREATE TABLE IF NOT EXISTS ItensRefeicao (
   item_refeicao_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  quantidade FLOAT,
+  quantidade VARCHAR(50),
   unidade_medida VARCHAR(50),
   refeicao_id INT UNSIGNED NOT NULL,
   alimento_id INT UNSIGNED NOT NULL,

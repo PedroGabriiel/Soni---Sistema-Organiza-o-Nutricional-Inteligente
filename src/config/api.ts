@@ -21,6 +21,12 @@ export const API_ENDPOINTS = {
   getPatientInfo: `${API_BASE_URL}/get_patient_info.php`,
   getPatientDiet: `${API_BASE_URL}/get_patient_diet.php`,
   savePatientDiet: `${API_BASE_URL}/save_patient_diet.php`,
+  // Relatórios / Diário alimentar
+  getPatientReports: `${API_BASE_URL}/get_patient_reports.php`,
+  savePatientReport: `${API_BASE_URL}/save_patient_report.php`,
+  // Substitution groups
+  getSubstitutionGroups: `${API_BASE_URL}/get_substitution_groups.php`,
+  saveSubstitutionGroup: `${API_BASE_URL}/save_substitution_group.php`,
   
   // Testes (removidos em produção)
 };

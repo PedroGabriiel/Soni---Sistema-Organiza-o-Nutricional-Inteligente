@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,10 @@ import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGrou
 import { ArrowLeft, Users, Settings } from 'lucide-react';
 import { mockSubstitutionRules } from '@/data/mockData';
 import Logo from '@/components/Logo';
+import { API_ENDPOINTS } from '@/config/api';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const SubstitutionRules = () => {
   const navigate = useNavigate();
@@ -29,6 +33,12 @@ const SubstitutionRules = () => {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => navigate('/nutricionista/perfil')}>
+                  <Users className="h-4 w-4" />
+                  <span>Meu Perfil</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton className="text-primary bg-primary-50">
                   <Settings className="h-4 w-4" />
                   <span>Regras de Substituição</span>
@@ -40,6 +50,50 @@ const SubstitutionRules = () => {
       </SidebarContent>
     </Sidebar>
   );
+
+  const [groups, setGroups] = useState<any[]>([]);
+  const [editingGroup, setEditingGroup] = useState<any | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(API_ENDPOINTS.getSubstitutionGroups);
+        const json = await res.json();
+        if (json.ok) setGroups(json.data || []);
+        else setGroups(mockSubstitutionRules as any);
+      } catch (e) {
+        setGroups(mockSubstitutionRules as any);
+      }
+    };
+    load();
+  }, []);
+
+  const openEdit = (g: any) => {
+    setEditingGroup({ grupo_id: g.grupo_id || 0, nome: g.nome || '', alimentos: (g.alimentos || []).map((a: any) => a.nome || a) });
+    setIsEditModalOpen(true);
+  };
+
+  const saveGroup = async () => {
+    if (!editingGroup) return;
+    try {
+      const payload = { grupo_id: editingGroup.grupo_id, nome: editingGroup.nome, alimentos: editingGroup.alimentos.map((n: string) => ({ nome: n })) };
+      const res = await fetch(API_ENDPOINTS.saveSubstitutionGroup, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const json = await res.json();
+      if (json.ok) {
+        // reload
+        const r2 = await fetch(API_ENDPOINTS.getSubstitutionGroups);
+        const j2 = await r2.json();
+        if (j2.ok) setGroups(j2.data || []);
+        setIsEditModalOpen(false);
+      } else {
+        alert(json.message || 'Erro ao salvar');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar');
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -70,16 +124,19 @@ const SubstitutionRules = () => {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {mockSubstitutionRules.map((rule) => (
-                    <div key={rule.id} className="p-4 bg-gray-50 rounded-lg">
-                      <h3 className="font-semibold text-gray-800 mb-3">{rule.category}</h3>
+                  {groups.map((rule) => (
+                    <div key={rule.grupo_id || rule.id} className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-gray-800">{rule.nome || rule.category}</h3>
+                        <Button size="sm" onClick={() => openEdit(rule)}>Editar</Button>
+                      </div>
                       <div className="flex flex-wrap gap-2">
-                        {rule.foods.map((food, index) => (
+                        {(rule.alimentos || []).map((food: any, index: number) => (
                           <span
                             key={index}
                             className="px-3 py-1 bg-white text-sm text-gray-700 rounded-full border"
                           >
-                            {food}
+                            {food.nome || food}
                           </span>
                         ))}
                       </div>
@@ -96,14 +153,14 @@ const SubstitutionRules = () => {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  {mockSubstitutionRules.map((rule) => (
-                    <div key={rule.id} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-                      <Checkbox id={rule.id} defaultChecked />
+                  {groups.map((rule) => (
+                    <div key={rule.grupo_id || rule.id} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+                      <Checkbox id={`g-${rule.grupo_id || rule.id}`} defaultChecked />
                       <label
-                        htmlFor={rule.id}
+                        htmlFor={`g-${rule.grupo_id || rule.id}`}
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        Alimentos do grupo <strong>{rule.category}</strong> só podem ser substituídos por outros de <strong>{rule.category}</strong>.
+                        Alimentos do grupo <strong>{rule.nome}</strong>
                       </label>
                     </div>
                   ))}
@@ -111,6 +168,31 @@ const SubstitutionRules = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Edit Group Modal */}
+          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Editar Grupo de Substituição</DialogTitle>
+              </DialogHeader>
+              {editingGroup && (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Nome do Grupo</Label>
+                    <Input value={editingGroup.nome} onChange={(e) => setEditingGroup({ ...editingGroup, nome: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Alimentos (uma linha por alimento)</Label>
+                    <textarea value={(editingGroup.alimentos || []).join('\n')} onChange={(e) => setEditingGroup({ ...editingGroup, alimentos: e.target.value.split('\n').map((s: string) => s.trim()).filter(Boolean) })} className="w-full p-2 border rounded-md" rows={6} />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancelar</Button>
+                    <Button onClick={saveGroup} className="bg-primary">Salvar</Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </main>
       </div>
     </SidebarProvider>

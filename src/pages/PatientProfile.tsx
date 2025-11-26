@@ -44,6 +44,7 @@ const PatientProfile = () => {
       itens: Array<{ item_refeicao_id: number; quantidade: string; unidade_medida?: string; alimento: string }>;
     }>;
   }>>([]);
+  const [reports, setReports] = useState<Array<{ diario_id: number; data_hora: string; descricao?: string; feedback?: string; foto?: string }>>([]);
 
   // Diet form state (for create/edit)
   type DietForm = {
@@ -93,6 +94,14 @@ const PatientProfile = () => {
         const dietJson = await dietRes.json();
         if (!dietJson.ok) throw new Error(dietJson.message || 'Erro ao carregar dietas');
         setDietas(Array.isArray(dietJson.data) ? dietJson.data : []);
+        // Buscar relatórios do paciente (diário alimentar)
+        try {
+          const rRes = await fetch(`${API_ENDPOINTS.getPatientReports}?paciente_id=${pacienteId}`);
+          const rJson = await rRes.json();
+          if (rJson.ok && Array.isArray(rJson.data)) setReports(rJson.data);
+        } catch (e) {
+          console.error('Erro ao carregar relatórios', e);
+        }
       } catch (e: any) {
         console.error(e);
         toast({ title: 'Erro', description: e.message || 'Falha ao carregar dados do paciente.', variant: 'destructive' });
@@ -175,7 +184,7 @@ const PatientProfile = () => {
                         refeicoes: latest.refeicoes.map(r => ({
                           nome: r.nome,
                           horario: r.horario || '',
-                          itens: r.itens.map(it => ({ alimento: it.alimento, quantidade: it.quantidade || '', unidade_medida: it.unidade_medida || '' }))
+                          itens: r.itens.map(it => ({ alimento: it.alimento, quantidade: it.quantidade || '' }))
                         }))
                       });
                     } else {
@@ -283,16 +292,6 @@ const PatientProfile = () => {
                                         setDietForm({ ...dietForm, refeicoes: ref });
                                       }} placeholder="Ex: 100" className="mt-1" />
                                     </div>
-                                    <div className="md:col-span-3">
-                                      <Label>Unidade</Label>
-                                      <Input value={it.unidade_medida || ''} onChange={(e) => {
-                                        const ref = [...dietForm.refeicoes];
-                                        const itens = [...ref[mi].itens];
-                                        itens[ii] = { ...itens[ii], unidade_medida: e.target.value };
-                                        ref[mi] = { ...ref[mi], itens };
-                                        setDietForm({ ...dietForm, refeicoes: ref });
-                                      }} placeholder="g, ml, xíc, fatia..." className="mt-1" />
-                                    </div>
                                     <div className="md:col-span-12 flex justify-end">
                                       <Button variant="ghost" className="text-red-600" onClick={() => {
                                         const ref = [...dietForm.refeicoes];
@@ -310,6 +309,7 @@ const PatientProfile = () => {
                         ))}
                       </div>
 
+                      
                       <div className="flex justify-end gap-2 pt-2">
                         <Button variant="default" onClick={async () => {
                           if (!patient) return;
@@ -333,7 +333,7 @@ const PatientProfile = () => {
                               refeicoes: dietForm.refeicoes.map(r => ({
                                 nome: r.nome,
                                 horario: r.horario || null,
-                                itens: r.itens.filter(x => x.alimento.trim()).map(x => ({ alimento: x.alimento.trim(), quantidade: x.quantidade || '', unidade_medida: x.unidade_medida || null }))
+                                itens: r.itens.filter(x => x.alimento.trim()).map(x => ({ alimento: x.alimento.trim(), quantidade: x.quantidade || '' }))
                               }))
                             };
                             const res = await fetch(API_ENDPOINTS.savePatientDiet, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -369,6 +369,48 @@ const PatientProfile = () => {
             <div className="text-gray-600">Nenhuma dieta cadastrada para este paciente.</div>
           ) : (
             <div className="space-y-6">
+              {/* Relatórios do paciente */}
+              <Card className="shadow-soft border-0">
+                <CardHeader className="bg-gradient-to-r from-secondary-50 to-primary-50">
+                  <CardTitle className="text-xl text-gray-800">Relatórios do Paciente</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reports.length === 0 ? (
+                    <div className="text-gray-600">Nenhum relatório encontrado.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {reports.map((rep) => (
+                        <div key={rep.diario_id} className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="text-sm font-medium text-gray-800">{new Date(rep.data_hora).toLocaleString()}</div>
+                              <div className="text-sm text-gray-600 mt-1">{rep.descricao || '—'}</div>
+                              {rep.feedback && (
+                                <div className="text-sm text-primary mt-1">
+                                  Feedback: {(
+                                    {
+                                      complete: 'Consegui seguir 100%',
+                                      partial: 'Segui parcialmente',
+                                      none: 'Não consegui seguir',
+                                    } as Record<string, string>
+                                  )[rep.feedback] ?? rep.feedback}
+                                </div>
+                              )}
+                            </div>
+                            {rep.foto ? (
+                              <div className="ml-4">
+                                <a href={rep.foto} target="_blank" rel="noreferrer">
+                                  <img src={rep.foto} alt="foto" className="h-20 w-20 object-cover rounded-md border" />
+                                </a>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
               {/* Exibe apenas a dieta mais recente */}
               {dietas.slice(0, 1).map((dieta) => (
                 <div key={dieta.dieta_id}>
@@ -386,12 +428,6 @@ const PatientProfile = () => {
                                 <span className="font-medium text-gray-800">{food.quantidade}{food.unidade_medida ? ` ${food.unidade_medida}` : ''} de {food.alimento}</span>
                               </div>
                               <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-primary">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-red-500">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
                               </div>
                             </div>
                           ))}
